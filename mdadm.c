@@ -38,7 +38,7 @@ int mdadm_mount(void)
   {
     op = encode_op(JBOD_MOUNT, 0, 0);
     isMounted = 1;
-    if (jbod_operation(op, NULL) == 0)
+    if (jbod_client_operation(op, NULL) == 0)
     {
       return 1;
     }
@@ -54,7 +54,7 @@ int mdadm_unmount(void)
   {
     op = encode_op(JBOD_UNMOUNT, 0, 0);
     isMounted = 0;
-    if (jbod_operation(op, NULL) == 0)
+    if (jbod_client_operation(op, NULL) == 0)
     {
       return 1;
     }
@@ -92,7 +92,7 @@ int mdadm_read(uint32_t addr, uint32_t len, uint8_t *buf)
       uint32_t op;
       int x;
       op = encode_op(JBOD_SEEK_TO_DISK, disk_num, 0);
-      x = jbod_operation(op, NULL);
+      x = jbod_client_operation(op, NULL);
       if (x == -1)
       {
         return -1;
@@ -100,7 +100,7 @@ int mdadm_read(uint32_t addr, uint32_t len, uint8_t *buf)
 
       // Find appropriate block
       op = encode_op(JBOD_SEEK_TO_BLOCK, 0, block_num);
-      x = jbod_operation(op, NULL);
+      x = jbod_client_operation(op, NULL);
       if (x == -1)
       {
         return -1;
@@ -108,7 +108,7 @@ int mdadm_read(uint32_t addr, uint32_t len, uint8_t *buf)
 
       // Array to hold entire block at the location of the byte's address
       op = encode_op(JBOD_READ_BLOCK, 0, 0);
-      x = jbod_operation(op, buffer);
+      x = jbod_client_operation(op, buffer);
       if (x == -1)
       {
         return -1;
@@ -169,7 +169,7 @@ int mdadm_write(uint32_t addr, uint32_t len, const uint8_t *buf)
     {
       // Find appropriate disk
       op = encode_op(JBOD_SEEK_TO_DISK, disk_num, 0);
-      x = jbod_operation(op, NULL);
+      x = jbod_client_operation(op, NULL);
       if (x == -1)
       {
         return -1;
@@ -177,14 +177,14 @@ int mdadm_write(uint32_t addr, uint32_t len, const uint8_t *buf)
 
       // Find appropriate block
       op = encode_op(JBOD_SEEK_TO_BLOCK, 0, block_num);
-      x = jbod_operation(op, NULL);
+      x = jbod_client_operation(op, NULL);
       if (x == -1)
       {
         return -1;
       }
 
       op = encode_op(JBOD_READ_BLOCK, 0, 0);
-      x = jbod_operation(op, buffer);
+      x = jbod_client_operation(op, buffer);
       if (x == -1)
       {
         return -1;
@@ -195,7 +195,7 @@ int mdadm_write(uint32_t addr, uint32_t len, const uint8_t *buf)
     }
 
     op = encode_op(JBOD_SEEK_TO_DISK, disk_num, 0);
-    x = jbod_operation(op, NULL);
+    x = jbod_client_operation(op, NULL);
     if (x == -1)
     {
       return -1;
@@ -203,7 +203,7 @@ int mdadm_write(uint32_t addr, uint32_t len, const uint8_t *buf)
 
     // Find appropriate block
     op = encode_op(JBOD_SEEK_TO_BLOCK, 0, block_num);
-    x = jbod_operation(op, NULL);
+    x = jbod_client_operation(op, NULL);
     if (x == -1)
     {
       return -1;
@@ -212,7 +212,7 @@ int mdadm_write(uint32_t addr, uint32_t len, const uint8_t *buf)
     memcpy(&buffer[offset], buf + numsWritten, bytesToWrite);
 
     op = encode_op(JBOD_WRITE_BLOCK, 0, 0);
-    x = jbod_operation(op, buffer);
+    x = jbod_client_operation(op, buffer);
     if (x == -1)
     {
       return -1;

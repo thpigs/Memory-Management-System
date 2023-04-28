@@ -18,6 +18,22 @@ int cli_sd = -1;
  * failure */
 static bool nread(int fd, int len, uint8_t *buf)
 {
+  int numBytesRead = 0;
+  while (numBytesRead < len)
+  {
+    int n = read(fd, &buf[numBytesRead], len - numBytesRead);
+    if (n == -1)
+    {
+      return false;
+    }
+    else if (n == 0)
+    {
+      // end of file
+    }
+    else
+    {
+    }
+  }
   return false;
 }
 
@@ -44,15 +60,42 @@ static bool send_packet(int sd, uint32_t op, uint8_t *block)
  * socket; returns true if successful and false if not. */
 bool jbod_connect(const char *ip, uint16_t port)
 {
+  /*
+  Create socket
+  Convert ip to binary form
+  Connect
+  */
+  struct sockaddr_in caddr;
+  int cli_sd = socket(AF_INET, SOCK_STREAM, 0);
+
+  caddr.sin_family = AF_INET;
+  caddr.sin_port = htons(port);
+  if (inet_aton(ip, &caddr.sin_addr) == 0)
+  {
+    int connection = connect(cli_sd, &caddr, sizeof(caddr));
+    if (connection == 0)
+    {
+      return true;
+    }
+  }
+  return false;
 }
 
 /* disconnects from the server and resets cli_sd */
 void jbod_disconnect(void)
 {
+  /*
+  close the connection
+  */
+  close(cli_sd);
 }
 
 /* sends the JBOD operation to the server and receives and processes the
  * response. */
 int jbod_client_operation(uint32_t op, uint8_t *block)
 {
+  /*
+  write packet;
+  read response;
+  */
 }
