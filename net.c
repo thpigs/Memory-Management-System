@@ -53,22 +53,6 @@ static bool nwrite(int fd, int len, uint8_t *buf)
  * failure */
 static bool recv_packet(int fd, uint32_t *op, uint16_t *ret, uint8_t *block)
 {
-  /*
-  uint8_t header[8];
-  if (nread() is successful) {
-
-  }
-  Reading from a socket, do a bunch of reads.
-  Need to read in steps. First need to read in header (8bytes).
-  Same thing as send_pack, but first read header length from block/socket.
-  Then parse header depending on the length. It may need to read the complete block instead of just the header.
-  */
-  /*
-   if (*ret == -1)
-   {
-     return false;
-   }
-   */
   uint16_t len;
   uint8_t buf[HEADER_LEN];
 
@@ -98,18 +82,8 @@ static bool recv_packet(int fd, uint32_t *op, uint16_t *ret, uint8_t *block)
  * failure */
 static bool send_packet(int sd, uint32_t op, uint8_t *block)
 {
-  /*
-  nwrite()
-  Just make a single call to nwrite(),
-  First create send buffer with header length depending on what command is being sent. Ex. seek commands don't need a buffer, but a write command does
-  Then call nwrite(). done.
-  */
-
   uint16_t len = HEADER_LEN;
-  // Write and read commands go here. Buf will either be empty or have contents and len will be 264.
-  uint32_t cmd = op >> 26;
   uint16_t retCode = 0;
-  // NEED TO FIX THIS TO EXTRACT THE CORRECT BITS
   if (op >> 26 == JBOD_WRITE_BLOCK)
   {
     len += JBOD_BLOCK_SIZE;
@@ -132,8 +106,6 @@ static bool send_packet(int sd, uint32_t op, uint8_t *block)
       return false;
     }
   }
-  // Mount and seek commands go here. Buf will be NULL and len will be 8.
-  // Possible that read will also go here.
   else
   {
     uint8_t buf[HEADER_LEN];
@@ -160,12 +132,6 @@ static bool send_packet(int sd, uint32_t op, uint8_t *block)
  * socket; returns true if successful and false if not. */
 bool jbod_connect(const char *ip, uint16_t port)
 {
-  /*
-  Create socket
-  Convert ip to binary form
-  Connect
-  */
-
   // Specify address
   struct sockaddr_in caddr;
   caddr.sin_family = AF_INET;
@@ -176,7 +142,6 @@ bool jbod_connect(const char *ip, uint16_t port)
   }
 
   // Creates socket
-
   cli_sd = socket(AF_INET, SOCK_STREAM, 0);
 
   if (cli_sd == -1)
@@ -196,9 +161,6 @@ bool jbod_connect(const char *ip, uint16_t port)
 /* disconnects from the server and resets cli_sd */
 void jbod_disconnect(void)
 {
-  /*
-  close the connection
-  */
   close(cli_sd);
   cli_sd = -1;
 }
@@ -207,12 +169,6 @@ void jbod_disconnect(void)
  * response. */
 int jbod_client_operation(uint32_t op, uint8_t *block)
 {
-  /*
-  send_packet()
-  recv_packet()
-  write packet;
-  read response;
-  */
   bool x = send_packet(cli_sd, op, block);
   if (x == false)
   {
@@ -220,7 +176,6 @@ int jbod_client_operation(uint32_t op, uint8_t *block)
   }
 
   uint16_t retCode;
-  // good practice to make sure op sent and recieved are the same
   uint32_t retOp;
   x = recv_packet(cli_sd, &retOp, &retCode, block);
   if (x == false)
