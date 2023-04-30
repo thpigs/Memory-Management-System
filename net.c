@@ -45,12 +45,13 @@ static bool nwrite(int fd, int len, uint8_t *buf)
     }
     numBytesWritten += n;
   }
+
   return true;
 }
 
 /* attempts to receive a packet from fd; returns true on success and false on
  * failure */
-static bool recv_packet(int fd, uint32_t *op, /*uint16_t *ret,*/ uint8_t *block)
+static bool recv_packet(int fd, uint32_t *op, uint16_t *ret, uint8_t *block)
 {
   /*
   uint8_t header[8];
@@ -68,17 +69,29 @@ static bool recv_packet(int fd, uint32_t *op, /*uint16_t *ret,*/ uint8_t *block)
      return false;
    }
    */
-  // Uncomment ret stuff, and maybe this function is literally the same as send_packet? copy paste but do nread instead.
-  uint16_t len = HEADER_LEN;
-  if (*op == JBOD_WRITE_BLOCK || *op == JBOD_READ_BLOCK)
+  uint16_t len;
+  uint8_t buf[HEADER_LEN];
+
+  if (nread(cli_sd, HEADER_LEN, buf) == false)
   {
-    len += JBOD_BLOCK_SIZE;
+    return false;
   }
-  if (nread(cli_sd, len, block) == true)
+
+  memcpy(&len, &buf, sizeof(len));
+  memcpy(&op, &buf[2], sizeof(op));
+  memcpy(&ret, &buf[6], sizeof(ret));
+  len = ntohs(len);
+  op = ntohl(op);
+  ret = ntohs(ret);
+
+  if (len > HEADER_LEN)
   {
-    return true;
+    if (nread(cli_sd, JBOD_BLOCK_SIZE, block) == false)
+    {
+      return false;
+    }
   }
-  return false;
+  return true;
 }
 
 /* attempts to send a packet to sd; returns true on success and false on
@@ -94,7 +107,10 @@ static bool send_packet(int sd, uint32_t op, uint8_t *block)
 
   uint16_t len = HEADER_LEN;
   // Write and read commands go here. Buf will either be empty or have contents and len will be 264.
-  if (op >> 26 == JBOD_WRITE_BLOCK || op >> 26 == JBOD_READ_BLOCK)
+  uint32_t cmd = op >> 26;
+  uint16_t retCode = 0;
+  // NEED TO FIX THIS TO EXTRACT THE CORRECT BITS
+  if (op >> 26 == JBOD_WRITE_BLOCK)
   {
     len += JBOD_BLOCK_SIZE;
     uint8_t buf[HEADER_LEN + JBOD_BLOCK_SIZE];
@@ -105,6 +121,10 @@ static bool send_packet(int sd, uint32_t op, uint8_t *block)
 
     op = htonl(op);
     memcpy(&buf[2], &op, sizeof(op));
+
+    retCode = htons(retCode);
+    memcpy(&buf[6], &retCode, sizeof(retCode));
+
     memcpy(&buf[8], block, JBOD_BLOCK_SIZE * sizeof(uint8_t));
 
     if (nwrite(cli_sd, len, buf) == false)
@@ -123,6 +143,9 @@ static bool send_packet(int sd, uint32_t op, uint8_t *block)
 
     op = htonl(op);
     memcpy(&buf[2], &op, sizeof(op));
+
+    retCode = htons(retCode);
+    memcpy(&buf[6], &retCode, sizeof(retCode));
 
     if (nwrite(cli_sd, len, buf) == false)
     {
@@ -143,18 +166,20 @@ bool jbod_connect(const char *ip, uint16_t port)
   Connect
   */
 
-  // Creates socket
-  int cli_sd = socket(AF_INET, SOCK_STREAM, 0);
-  if (cli_sd == -1)
-  {
-    return false;
-  }
-
   // Specify address
   struct sockaddr_in caddr;
   caddr.sin_family = AF_INET;
   caddr.sin_port = htons(port);
   if (inet_aton(ip, &caddr.sin_addr) == 0)
+  {
+    return false;
+  }
+
+  // Creates socket
+
+  cli_sd = socket(AF_INET, SOCK_STREAM, 0);
+
+  if (cli_sd == -1)
   {
     return false;
   }
@@ -187,22 +212,26 @@ int jbod_client_operation(uint32_t op, uint8_t *block)
   recv_packet()
   write packet;
   read response;
-
-  maybe recv_packet is for only read, send_packet is for all others. So check op here and do the according call.
   */
-
   bool x = send_packet(cli_sd, op, block);
   if (x == false)
   {
     return -1;
   }
 
-  uint16_t retCode[2];
-  memcpy(retCode, &block[6], 2 * sizeof(uint16_t));
-  x = recv_packet(cli_sd, &op, /*retCode,*/ block);
+  uint16_t retCode;
+  // good practice to make sure op sent and recieved are the same
+  uint32_t retOp;
+  x = recv_packet(cli_sd, &retOp, &retCode, block);
   if (x == false)
   {
     return -1;
   }
+
+  if (retCode == -1)
+  {
+    return -1;
+  }
+
   return 0;
 }
