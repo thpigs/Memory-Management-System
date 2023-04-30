@@ -22,7 +22,7 @@ static bool nread(int fd, int len, uint8_t *buf)
   while (numBytesRead < len)
   {
     int n = read(fd, &buf[numBytesRead], len - numBytesRead);
-    if (n == -1)
+    if (n < 0)
     {
       return false;
     }
@@ -39,7 +39,7 @@ static bool nwrite(int fd, int len, uint8_t *buf)
   while (numBytesWritten < len)
   {
     int n = write(fd, &buf[numBytesWritten], len - numBytesWritten);
-    if (n == -1)
+    if (n < 0)
     {
       return false;
     }
@@ -50,7 +50,7 @@ static bool nwrite(int fd, int len, uint8_t *buf)
 
 /* attempts to receive a packet from fd; returns true on success and false on
  * failure */
-static bool recv_packet(int fd, uint32_t *op, uint16_t *ret, uint8_t *block)
+static bool recv_packet(int fd, uint32_t *op, /*uint16_t *ret,*/ uint8_t *block)
 {
   /*
   uint8_t header[8];
@@ -62,14 +62,14 @@ static bool recv_packet(int fd, uint32_t *op, uint16_t *ret, uint8_t *block)
   Same thing as send_pack, but first read header length from block/socket.
   Then parse header depending on the length. It may need to read the complete block instead of just the header.
   */
-  if (*ret == -1)
-  {
-    return false;
-  }
-  uint8_t header[8];
-  memcpy(header, block, sizeof(uint8_t) * 8);
-
-  int len = HEADER_LEN;
+  /*
+   if (*ret == -1)
+   {
+     return false;
+   }
+   */
+  // Uncomment ret stuff, and maybe this function is literally the same as send_packet? copy paste but do nread instead.
+  uint16_t len = HEADER_LEN;
   if (*op == JBOD_WRITE_BLOCK || *op == JBOD_READ_BLOCK)
   {
     len += JBOD_BLOCK_SIZE;
@@ -91,34 +91,6 @@ static bool send_packet(int sd, uint32_t op, uint8_t *block)
   First create send buffer with header length depending on what command is being sent. Ex. seek commands don't need a buffer, but a write command does
   Then call nwrite(). done.
   */
-  /*
-   uint16_t len = HEADER_LEN;
-
-   if (op >> 26 == JBOD_WRITE_BLOCK)
-   {
-     len += JBOD_BLOCK_SIZE;
-   }
-
-   len = htons(len);
-   uint8_t buf[HEADER_LEN + JBOD_BLOCK_SIZE];
-   memcpy(buf, &len, sizeof(len));
-   len = ntohs(len);
-
-   op = htonl(op);
-   // buf and len are different byte values, so this might the destination might not be the right starting point.
-   memcpy(&buf[2], &op, sizeof(op));
-
-   if (block != NULL)
-   {
-     memcpy(&buf[8], block, JBOD_BLOCK_SIZE * sizeof(uint8_t));
-   }
-
-   if (nwrite(cli_sd, len, buf) == false)
-   {
-     return false;
-   }
-   return true;
-   */
 
   uint16_t len = HEADER_LEN;
   // Write and read commands go here. Buf will either be empty or have contents and len will be 264.
@@ -141,6 +113,7 @@ static bool send_packet(int sd, uint32_t op, uint8_t *block)
     }
   }
   // Mount and seek commands go here. Buf will be NULL and len will be 8.
+  // Possible that read will also go here.
   else
   {
     uint8_t buf[HEADER_LEN];
@@ -223,35 +196,13 @@ int jbod_client_operation(uint32_t op, uint8_t *block)
   {
     return -1;
   }
+
   uint16_t retCode[2];
   memcpy(retCode, &block[6], 2 * sizeof(uint16_t));
-  x = recv_packet(cli_sd, &op, retCode, block);
+  x = recv_packet(cli_sd, &op, /*retCode,*/ block);
   if (x == false)
   {
     return -1;
   }
   return 0;
-
-  /*
-    bool x;
-    if (op >> 26 == JBOD_READ_BLOCK)
-    {
-      uint16_t retCode[2];
-      memcpy(retCode, &block[6], 2 * sizeof(uint16_t));
-      x = recv_packet(cli_sd, &op, retCode, block);
-      if (!x)
-      {
-        return -1;
-      }
-    }
-    else
-    {
-      x = send_packet(cli_sd, op, block);
-      if (!x)
-      {
-        return -1;
-      }
-    }
-    return 0;
-    */
 }
